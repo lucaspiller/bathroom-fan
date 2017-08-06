@@ -1,0 +1,10 @@
+#ifndef H_CONFIG
+#define H_CONFIG
+
+#define WIFI_SSID ""
+#define WIFI_PASSWORD ""
+
+#define START_HUMIDITY 90
+#define STOP_HUMIDITY 80
+
+#endif
