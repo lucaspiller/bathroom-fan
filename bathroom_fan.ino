@@ -8,8 +8,8 @@
 
 #include "config.h"
 
-#define DHT_PIN D4
-#define FAN_PIN D3
+#define DHT_PIN D5
+#define FAN_PIN D7
 
 #define DHT_INTERVAL 5000
 #define CONTROL_INTERVAL 1000
@@ -17,7 +17,7 @@
 
 #define HISTORY_LENGTH 100
 
-SimpleDHT11 dht11;
+SimpleDHT22 dht22;
 ESP8266WebServer server(80);
 
 bool historyFan[HISTORY_LENGTH];
@@ -40,10 +40,10 @@ bool manualOverride = false;
 // DHT
 //
 void dhtRead() {
-  int err = dht11.read(DHT_PIN, &temperature, &humidity, NULL);
+  int err = dht22.read(DHT_PIN, &temperature, &humidity, NULL);
   if (err != SimpleDHTErrSuccess) {
     dhtError = true;
-    Serial.print("Read DHT11 failed, err=");
+    Serial.print("Read dht22 failed, err=");
     Serial.println(err);
   } else {
     dhtError = false;
