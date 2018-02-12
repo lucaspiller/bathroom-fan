@@ -371,7 +371,7 @@ void serverStart() {
 // OTA Update
 //
 void otaStart() {
-  ArduinoOTA.setHostname("esp8266-bathroom-fan");
+  ArduinoOTA.setHostname("bathroom-fan");
   ArduinoOTA.onStart([]() {
     fanStop();
 
@@ -415,6 +415,8 @@ void setup() {
   pinMode(FAN_PIN, OUTPUT);
 
   // Connect to wifi
+  WiFi.hostname("bathroom-fan");
+  WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.println("Waiting for wifi...");
 
