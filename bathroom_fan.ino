@@ -11,11 +11,11 @@
 #define DHT_PIN D5
 #define FAN_PIN D7
 
-#define DHT_INTERVAL 5000
-#define CONTROL_INTERVAL 1000
-#define HISTORY_INTERVAL 10000
+#define DHT_INTERVAL 5000 // 5 seconds
+#define CONTROL_INTERVAL 1000 // 1 second
+#define HISTORY_INTERVAL 60000 // 1 minute
 
-#define HISTORY_LENGTH 100
+#define HISTORY_LENGTH 120 // 2 hours
 
 SimpleDHT22 dht22;
 ESP8266WebServer server(80);
