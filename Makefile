@@ -1,4 +1,6 @@
-UPLOAD_PORT := $(shell getent hosts ESP_0016E1 | cut -d' ' -f1)
+ifeq ($(UPLOAD_PORT),)
+	UPLOAD_PORT := $(shell getent hosts ESP_0016E1 | cut -d' ' -f1)
+endif
 
 all:
 	platformio run
