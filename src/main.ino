@@ -13,9 +13,9 @@
 
 #define DHT_INTERVAL 5000 // 5 seconds
 #define CONTROL_INTERVAL 1000 // 1 second
-#define HISTORY_INTERVAL 60000 // 1 minute
+#define HISTORY_INTERVAL 300000 // 5 minutes
 
-#define HISTORY_LENGTH 120 // 2 hours
+#define HISTORY_LENGTH 12 // 2 hours
 
 SimpleDHT22 dht22;
 ESP8266WebServer server(80);
