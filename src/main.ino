@@ -1,4 +1,5 @@
 #include <SimpleDHT.h>
+#include <ArduinoJson.h>
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
@@ -19,6 +20,7 @@
 
 SimpleDHT22 dht22;
 ESP8266WebServer server(80);
+DynamicJsonBuffer jsonBuffer;
 
 bool historyFan[HISTORY_LENGTH];
 byte historyTemperature[HISTORY_LENGTH];
@@ -158,15 +160,8 @@ void serverRoot() {
 }
 
 void serverHistory() {
-  char temp[50];
-  String resp = "<html>\r\n";
-  resp += "<body>\r\n";
-  resp += "<table>\r\n";
-  resp += "<tr>\r\n";
-  resp += "<th>Fan</th>\r\n";
-  resp += "<th>Temperature</th>\r\n";
-  resp += "<th>Humidity</th>\r\n";
-  resp += "</tr>\r\n";
+  JsonObject& root = jsonBuffer.createObject();
+  JsonArray& history = root.createNestedArray("history");
 
   for (int i = 1; i < HISTORY_LENGTH; i++) {
     int ix = historyPointer - i;
@@ -174,65 +169,41 @@ void serverHistory() {
       ix += HISTORY_LENGTH;
     }
 
-    resp += "<tr>\r\n";
-
-    if (historyFan[ix]) {
-      resp += "<td>1</td>\r\n";
-    } else {
-      resp += "<td>0</td>\r\n";
+    if (historyTemperature[ix] == 0) {
+      break;
     }
 
-    sprintf(temp, "<td>%1.0d</td>\r\n", (int) historyTemperature[ix]);
-    resp += temp;
-    sprintf(temp, "<td>%1.0d</td>\r\n", (int) historyHumidity[ix]);
-    resp += temp;
-
-    resp += "</tr>\r\n";
+    JsonObject& result = jsonBuffer.createObject();
+    result["fanRunning"] = (bool) history[ix];
+    result["temperature"] = (int) historyTemperature[ix];
+    result["humidity"] = (int) historyHumidity[ix];
+    history.add(result);
   }
 
-  resp += "</table>\r\n";
-  resp += "</body>\r\n";
-  resp += "</html>\r\n";
+  String resp = "";
+  root.printTo(resp);
 
   server.sendHeader("Cache-Control","no-cache");
-  server.send(200, "text/html", resp);
+  server.send(200, "application/json", resp);
 }
 
 void serverStatus() {
   char temp[50];
 
-  String resp = "{\r\n";
-
-  resp += "\"mode\":";
+  JsonObject& root = jsonBuffer.createObject();
   if (manualOverride) {
-    resp += "\"manual\"";
+    root["mode"] = "manual";
   } else {
-    resp += "\"auto\"";
+    root["mode"] = "auto";
   }
-  resp += ",\r\n";
 
-  resp += "\"fanRunning\":";
-  if (fanRunning) {
-    resp += "true";
-  } else {
-    resp += "false";
-  }
-  resp += ",\r\n";
+  root["fanRunning"] = (bool) fanRunning;
+  root["dhtError"] = (bool) dhtError;
+  root["temperature"] = (int) temperature;
+  root["humidity"] = (int) humidity;
 
-  resp += "\"dhtError\":";
-  if (dhtError) {
-    resp += "true";
-  } else {
-    resp += "false";
-  }
-  resp += ",\r\n";
-
-  sprintf(temp, "\"temperature\":%1.0d\r\n", (int) temperature);
-  resp += temp;
-  sprintf(temp, "\"humidity\":%1.0d\r\n", (int) humidity);
-  resp += temp;
-
-  resp += "}\r\n";
+  String resp = "";
+  root.printTo(resp);
 
   server.sendHeader("Cache-Control","no-cache");
   server.send(200, "application/json", resp);

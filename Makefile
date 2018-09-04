@@ -10,3 +10,6 @@ upload:
 
 clean:
 	platformio run --target clean
+
+web:
+	xdg-open "http://$(UPLOAD_PORT)/"
