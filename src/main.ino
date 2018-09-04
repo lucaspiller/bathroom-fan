@@ -1,5 +1,6 @@
 #include <SimpleDHT.h>
 #include <ArduinoJson.h>
+#include <CircularBuffer.h>
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
@@ -22,12 +23,10 @@ SimpleDHT22 dht22;
 ESP8266WebServer server(80);
 DynamicJsonBuffer jsonBuffer;
 
-bool historyFan[HISTORY_LENGTH];
-byte historyTemperature[HISTORY_LENGTH];
-byte historyHumidity[HISTORY_LENGTH];
-
-int historyPointer = 0;
 int historyLastUpdateTime = 0;
+CircularBuffer<bool,HISTORY_LENGTH> historyFan;
+CircularBuffer<byte,HISTORY_LENGTH> historyTemperature;
+CircularBuffer<byte,HISTORY_LENGTH> historyHumidity;
 
 int dhtLastUpdateTime = 0;
 bool dhtError = false;
@@ -99,14 +98,9 @@ void controlLoop() {
 // History
 //
 void historyLoop() {
-  historyFan[historyPointer] = fanRunning;
-  historyTemperature[historyPointer] = temperature;
-  historyHumidity[historyPointer] = humidity;
-
-  historyPointer++;
-  if (historyPointer == HISTORY_LENGTH) {
-    historyPointer = 0;
-  }
+  historyFan.unshift(fanRunning);
+  historyTemperature.unshift(temperature);
+  historyHumidity.unshift(humidity);
 }
 
 //
@@ -162,20 +156,11 @@ void serverHistory() {
   JsonObject& root = jsonBuffer.createObject();
   JsonArray& history = root.createNestedArray("history");
 
-  for (int i = 1; i < HISTORY_LENGTH; i++) {
-    int ix = historyPointer - i;
-    if (ix < 0) {
-      ix += HISTORY_LENGTH;
-    }
-
-    if (historyTemperature[ix] == 0) {
-      break;
-    }
-
+  for (int i = 0; i < historyFan.size(); i++) {
     JsonObject& result = jsonBuffer.createObject();
-    result["fanRunning"] = (bool) history[ix];
-    result["temperature"] = (int) historyTemperature[ix];
-    result["humidity"] = (int) historyHumidity[ix];
+    result["fanRunning"] = (bool) historyFan[i];
+    result["temperature"] = (int) historyTemperature[i];
+    result["humidity"] = (int) historyHumidity[i];
     history.add(result);
   }
 
