@@ -151,7 +151,6 @@ void serverRoot() {
   sprintf(temp, "<br/>Humidity: %1.0d%%", (int) humidity);
   resp += temp;
   resp += "</p>\r\n";
-  resp += "<img src=\"graph.svg\"/>\r\n";
   resp += "</body>\r\n";
   resp += "</html>\r\n";
 
@@ -209,101 +208,6 @@ void serverStatus() {
   server.send(200, "application/json", resp);
 }
 
-void serverGraph() {
-  int width = 1200;
-  int height = 400;
-
-  char temp[100];
-  int pointWidth = width / (HISTORY_LENGTH - 1);
-
-  String resp = "";
-  sprintf(temp, "<svg xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\" width=\"%d\" height=\"%d\">\r\n", width, height);
-  resp += temp;
-  sprintf(temp, "<rect width=\"%d\" height=\"%d\" stroke-width=\"1\" fill=\"#fff\" stroke=\"#fafafa\" />\r\n", width, height);
-  resp += temp;
-
-  // Grid lines
-  resp += "<g stroke=\"#fafafa\">\r\n";
-
-  for (int i = 0; i < 10; i++) {
-    int y = (height / 10) * i;
-    sprintf(temp, "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" stroke-width=\"1\" />\r\n", 0, y, width, y);
-    resp += temp;
-  }
-
-  resp += "</g>\r\n";
-
-  // Humidity
-  resp += "<g stroke=\"#98fb98\">\r\n";
-
-  int lastY;
-  for (int i = 1; i < HISTORY_LENGTH; i++) {
-    int ix = historyPointer - i;
-    if (ix < 0) {
-      ix += HISTORY_LENGTH;
-    }
-
-    int x = (i - 2) * pointWidth;
-    int y = height - ((int) historyHumidity[ix]) * (height / 100);
-
-    if (i > 1) {
-      sprintf(temp, "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" stroke-width=\"1\" />\r\n", x, lastY, x + pointWidth, y);
-      resp += temp;
-    }
-
-    lastY = y;
-  }
-
-  resp += "</g>\r\n";
-
-  // Temperature
-  resp += "<g stroke=\"#6495ed\">\r\n";
-
-  for (int i = 1; i < HISTORY_LENGTH; i++) {
-    int ix = historyPointer - i;
-    if (ix < 0) {
-      ix += HISTORY_LENGTH;
-    }
-
-    int x = (i - 2) * pointWidth;
-    int y = height - ((int) historyTemperature[ix]) * (height / 100);
-
-    if (i > 1) {
-      sprintf(temp, "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" stroke-width=\"1\" />\r\n", x, lastY, x + pointWidth, y);
-      resp += temp;
-    }
-
-    lastY = y;
-  }
-  resp += "</g>\r\n";
-
-  // Fan
-  resp += "<g stroke=\"#f08080\">\r\n";
-
-  resp += "<polyline fill=\"none\" stroke=\"#f08080\" stroke-width=\"1\" points=\"\r\n";
-
-  for (int i = 1; i < HISTORY_LENGTH; i++) {
-    int ix = historyPointer - i;
-    if (ix < 0) {
-      ix += HISTORY_LENGTH;
-    }
-
-    int x = (i - 1) * pointWidth;
-    int y = historyFan[ix] ? 0 : height;
-
-    sprintf(temp, "%d,%d\r\n", x, y);
-    resp += temp;
-
-    lastY = y;
-  }
-  resp += "\"/>\r\n";
-
-  resp += "</g>\r\n";
-  resp += "</svg>\r\n";
-
-  server.send(200, "image/svg+xml", resp);
-}
-
 void serverManualStart() {
   manualOverride = true;
 
@@ -331,7 +235,6 @@ void serverManualCancel() {
 void serverStart() {
   server.on("/", serverRoot);
   server.on("/history", serverHistory);
-  server.on("/graph.svg", serverGraph);
   server.on("/manual/start", serverManualStart);
   server.on("/manual/cancel", serverManualCancel);
   server.on("/status", serverStatus);
