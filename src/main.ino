@@ -23,17 +23,17 @@ SimpleDHT22 dht22;
 ESP8266WebServer server(80);
 DynamicJsonBuffer jsonBuffer;
 
-int historyLastUpdateTime = 0;
+unsigned long historyLastUpdateTime = 0;
 CircularBuffer<bool,HISTORY_LENGTH> historyFan;
 CircularBuffer<byte,HISTORY_LENGTH> historyTemperature;
 CircularBuffer<byte,HISTORY_LENGTH> historyHumidity;
 
-int dhtLastUpdateTime = 0;
+unsigned long dhtLastUpdateTime = 0;
 bool dhtError = false;
 byte temperature = 0;
 byte humidity = 0;
 
-int controlLastUpdateTime = 0;
+unsigned long controlLastUpdateTime = 0;
 bool fanRunning = false;
 bool manualOverride = false;
 
@@ -56,13 +56,13 @@ void dhtRead() {
 //
 void fanStart() {
   fanRunning = true;
-  pinMode(BUILTIN_LED, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(FAN_PIN, HIGH);
 }
 
 void fanStop() {
   fanRunning = false;
-  pinMode(BUILTIN_LED, INPUT);
+  pinMode(LED_BUILTIN, INPUT);
   digitalWrite(FAN_PIN, LOW);
 }
 
@@ -158,7 +158,7 @@ void serverHistory() {
 
   for (int i = 0; i < historyFan.size(); i++) {
     JsonObject& result = jsonBuffer.createObject();
-    result["fanRunning"] = (bool) historyFan[i];
+    result["fanRunning"] = historyFan[i];
     result["temperature"] = (int) historyTemperature[i];
     result["humidity"] = (int) historyHumidity[i];
     history.add(result);
@@ -172,8 +172,6 @@ void serverHistory() {
 }
 
 void serverStatus() {
-  char temp[50];
-
   JsonObject& root = jsonBuffer.createObject();
   if (manualOverride) {
     root["mode"] = "manual";
@@ -181,8 +179,8 @@ void serverStatus() {
     root["mode"] = "auto";
   }
 
-  root["fanRunning"] = (bool) fanRunning;
-  root["dhtError"] = (bool) dhtError;
+  root["fanRunning"] = fanRunning;
+  root["dhtError"] = dhtError;
   root["temperature"] = (int) temperature;
   root["humidity"] = (int) humidity;
 
@@ -270,7 +268,7 @@ void setup() {
   Serial.println(F("== Bathroom Fan =="));
 
   pinMode(DHT_PIN, INPUT);
-  pinMode(BUILTIN_LED, INPUT); // LED off - if it's set to an output it will be on
+  pinMode(LED_BUILTIN, INPUT); // LED off - if it's set to an output it will be on
   pinMode(FAN_PIN, OUTPUT);
 
   // Connect to wifi
@@ -280,9 +278,9 @@ void setup() {
   Serial.println("Waiting for wifi...");
 
   while (WiFi.status() != WL_CONNECTED) {
-    pinMode(BUILTIN_LED, INPUT);
+    pinMode(LED_BUILTIN, INPUT);
     delay(200);
-    pinMode(BUILTIN_LED, OUTPUT);
+    pinMode(LED_BUILTIN, OUTPUT);
     delay(200);
     Serial.print(".");
   }
