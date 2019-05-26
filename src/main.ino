@@ -13,11 +13,11 @@
 #define DHT_PIN D5
 #define FAN_PIN D7
 
-#define DHT_INTERVAL 5000 // 5 seconds
-#define CONTROL_INTERVAL 1000 // 1 second
-#define HISTORY_INTERVAL 300000 // 5 minutes
+#define DHT_INTERVAL_SECONDS 5
+#define CONTROL_INTERVAL_SECONDS 1
+#define HISTORY_INTERVAL_SECONDS 15
 
-#define HISTORY_LENGTH 12 // 2 hours
+#define HISTORY_LENGTH 720 // 3 hours
 
 SimpleDHT22 dht22;
 ESP8266WebServer server(80);
@@ -41,12 +41,16 @@ bool manualOverride = false;
 // DHT
 //
 void dhtRead() {
-  int err = dht22.read(DHT_PIN, &temperature, &humidity, NULL);
+  byte newTemperature;
+  byte newHumidity;
+  int err = dht22.read(DHT_PIN, &newTemperature, &newHumidity, NULL);
   if (err != SimpleDHTErrSuccess) {
     dhtError = true;
     Serial.print("Read dht22 failed, err=");
     Serial.println(err);
   } else {
+    temperature = newTemperature;
+    humidity = newHumidity;
     dhtError = false;
   }
 }
@@ -84,12 +88,29 @@ void controlLoop() {
 
   // Automatic Control
   if (fanRunning) {
-    if (humidity <= STOP_HUMIDITY) {
+    if (humidityDelta(15) <= FIFTEEN_MINUTE_STOP_DELTA) {
       fanStop();
+      return;
+    }
+
+    if (fanRuntimeMinutes() > MAX_FAN_RUNTIME_MINUTES) {
+      fanStop();
+      return;
     }
   } else {
     if (humidity >= START_HUMIDITY) {
       fanStart();
+      return;
+    }
+
+    if (humidityDelta(1) >= ONE_MINUTE_START_DELTA) {
+      fanStart();
+      return;
+    }
+
+    if (humidityDelta(5) >= FIVE_MINUTE_START_DELTA) {
+      fanStart();
+      return;
     }
   }
 }
@@ -101,6 +122,35 @@ void historyLoop() {
   historyFan.unshift(fanRunning);
   historyTemperature.unshift(temperature);
   historyHumidity.unshift(humidity);
+}
+
+int humidityDelta(int minutes) {
+  unsigned int entry = (60 * minutes) / HISTORY_INTERVAL_SECONDS;
+
+  int last;
+  if (historyHumidity.size() < entry) {
+    last = (int) historyHumidity.last();
+  } else {
+    last = (int) historyHumidity[entry - 1];
+  }
+
+  return ((int) historyHumidity[0]) - last;
+}
+
+int fanRuntimeMinutes() {
+  if (!historyFan[0]) {
+    return 0;
+  }
+
+  unsigned int last = historyFan.size();
+  for(unsigned int i = 0; i < historyFan.size(); i++) {
+    if (!historyFan[i]) {
+      last = i;
+      break;
+    }
+  }
+
+  return (last * HISTORY_INTERVAL_SECONDS) / 60;
 }
 
 //
@@ -126,7 +176,9 @@ void serverRoot() {
   resp += "<p>\r\n";
   resp += "Fan:\r\n";
   if (fanRunning) {
-    resp += "<strong>Running</strong>\r\n";
+    resp += "<strong>Running</strong>";
+    sprintf(temp, " (%01d minutes)\r\n", fanRuntimeMinutes());
+    resp += temp;
   } else {
     resp += "<strong>Stopped</strong>\r\n";
   }
@@ -142,7 +194,9 @@ void serverRoot() {
 
   sprintf(temp, "<br/>Temperature: %1.0d&deg;C\r\n", (int) temperature);
   resp += temp;
-  sprintf(temp, "<br/>Humidity: %1.0d%%", (int) humidity);
+  sprintf(temp, "<br/>Humidity: %1.0d%%\r\n", (int) humidity);
+  resp += temp;
+  sprintf(temp, "<br/>Delta: %01d %01d %01d\r\n", humidityDelta(1), humidityDelta(5), humidityDelta(15));
   resp += temp;
   resp += "</p>\r\n";
   resp += "</body>\r\n";
@@ -158,7 +212,7 @@ void serverHistory() {
 
   for (int i = 0; i < historyFan.size(); i++) {
     JsonObject& result = jsonBuffer.createObject();
-    result["fanRunning"] = historyFan[i];
+    result["fanRunning"] = historyFan[i] ? 1 : 0;
     result["temperature"] = (int) historyTemperature[i];
     result["humidity"] = (int) historyHumidity[i];
     history.add(result);
@@ -295,19 +349,19 @@ void setup() {
 
 void loop() {
   // DHT
-  if ((unsigned long)(millis() - dhtLastUpdateTime) > DHT_INTERVAL) {
+  if ((unsigned long)(millis() - dhtLastUpdateTime) > DHT_INTERVAL_SECONDS * 1000) {
     dhtRead();
     dhtLastUpdateTime = millis();
   }
 
   // Control
-  if ((unsigned long)(millis() - controlLastUpdateTime) > CONTROL_INTERVAL) {
+  if ((unsigned long)(millis() - controlLastUpdateTime) > CONTROL_INTERVAL_SECONDS * 1000) {
     controlLoop();
     controlLastUpdateTime = millis();
   }
 
   // History
-  if ((unsigned long)(millis() - historyLastUpdateTime) > HISTORY_INTERVAL) {
+  if ((unsigned long)(millis() - historyLastUpdateTime) > HISTORY_INTERVAL_SECONDS * 1000) {
     historyLoop();
     historyLastUpdateTime = millis();
   }
