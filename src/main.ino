@@ -1,6 +1,7 @@
 #include <SimpleDHT.h>
 #include <ArduinoJson.h>
 #include <CircularBuffer.h>
+#include <MQTT.h>
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
@@ -22,6 +23,9 @@
 SimpleDHT22 dht22;
 ESP8266WebServer server(80);
 DynamicJsonBuffer jsonBuffer;
+
+WiFiClient net;
+MQTTClient mqtt;
 
 unsigned long historyLastUpdateTime = 0;
 CircularBuffer<bool,HISTORY_LENGTH> historyFan;
@@ -122,6 +126,7 @@ void historyLoop() {
   historyFan.unshift(fanRunning);
   historyTemperature.unshift(temperature);
   historyHumidity.unshift(humidity);
+  mqttPublish();
 }
 
 int humidityDelta(int minutes) {
@@ -199,6 +204,19 @@ void serverRoot() {
   sprintf(temp, "<br/>Delta: %01d %01d %01d\r\n", humidityDelta(1), humidityDelta(5), humidityDelta(15));
   resp += temp;
   resp += "</p>\r\n";
+
+  resp += "<p>\r\n";
+  resp += "MQTT:\r\n";
+  if (mqtt.connected()) {
+    resp += "<strong>Connected</strong>";
+  } else {
+    resp += "<strong>Error</strong>";
+  }
+  sprintf(temp, "<br/>lastError: %01d\r\n", mqtt.lastError());
+  resp += temp;
+  sprintf(temp, "<br/>returnCode: %01d\r\n", mqtt.returnCode());
+  resp += temp;
+  resp += "</p>\r\n";
   resp += "</body>\r\n";
   resp += "</html>\r\n";
 
@@ -225,7 +243,7 @@ void serverHistory() {
   server.send(200, "application/json", resp);
 }
 
-void serverStatus() {
+String buildStatus() {
   JsonObject& root = jsonBuffer.createObject();
   if (manualOverride) {
     root["mode"] = "manual";
@@ -238,11 +256,15 @@ void serverStatus() {
   root["temperature"] = (int) temperature;
   root["humidity"] = (int) humidity;
 
-  String resp = "";
-  root.printTo(resp);
+  String json = "";
+  root.printTo(json);
+  return json;
+}
 
-  server.sendHeader("Cache-Control","no-cache");
-  server.send(200, "application/json", resp);
+void serverStatus() {
+  String status = buildStatus();
+  server.sendHeader("Cache-Control", "no-cache");
+  server.send(200, "application/json", status);
 }
 
 void serverManualStart() {
@@ -276,6 +298,25 @@ void serverStart() {
   server.on("/manual/cancel", serverManualCancel);
   server.on("/status", serverStatus);
   server.begin();
+}
+
+//
+// MQTT
+//
+void mqttStart() {
+  mqtt.begin(MQTT_HOST, net);
+  mqtt.connect("bathroom-fan");
+}
+
+void mqttPublish() {
+  if (!mqtt.connected()) {
+    if (!mqtt.connect("bathroom-fan")) {
+      return;
+    }
+  }
+
+  String status = buildStatus();
+  mqtt.publish(MQTT_TOPIC_STATUS, status);
 }
 
 //
@@ -344,6 +385,7 @@ void setup() {
 
   // Start
   serverStart();
+  mqttStart();
   otaStart();
 }
 
@@ -366,7 +408,9 @@ void loop() {
     historyLastUpdateTime = millis();
   }
 
+
   server.handleClient();
   ArduinoOTA.handle();
+  mqtt.loop();
   delay(100);
 }

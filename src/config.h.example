@@ -4,6 +4,9 @@
 #define WIFI_SSID ""
 #define WIFI_PASSWORD ""
 
+#define MQTT_HOST ""
+#define MQTT_TOPIC_STATUS "bathroom-fan"
+
 #define START_HUMIDITY 95
 
 #define ONE_MINUTE_START_DELTA 7
@@ -11,5 +14,6 @@
 
 #define FIFTEEN_MINUTE_STOP_DELTA -10
 #define MAX_FAN_RUNTIME_MINUTES 90
+
 
 #endif
